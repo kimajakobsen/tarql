@@ -1,5 +1,7 @@
 package org.deri.tarql;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.Reader;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,6 +38,8 @@ public class tarql extends CmdGeneral {
 	private boolean withHeader = false;
 	private boolean withoutHeader = false;
 	private boolean testQuery = false;
+    private char seperator = ',';
+    private boolean loadAsFileStream = false;
 	private Model resultModel = ModelFactory.createDefaultModel();
 	
 	public tarql(String[] args) {
@@ -44,6 +48,9 @@ public class tarql extends CmdGeneral {
 		add(testQueryArg, "--test", "Show CONSTRUCT template and first rows only (for query debugging)");
 		add(withHeaderArg, "--header", "Force use of first row as variable names");
 		add(withoutHeaderArg, "--no-header", "Force default variable names (?a, ?b, ...)");
+        //add(seperator, "--seperator", "Force default variable names (?a, ?b, ...)");
+        //add(loadAsFileStream, "--no-header", "Force default variable names (?a, ?b, ...)");
+        //add()
 		getUsage().startCategory("Main arguments");
 		getUsage().addUsage("query.sparql", "File containing a SPARQL query to be applied to a CSV file");
 		getUsage().addUsage("table.csv", "CSV file to be processed; can be omitted if specified in FROM clause");
@@ -87,6 +94,7 @@ public class tarql extends CmdGeneral {
 
 	@Override
 	protected void exec() {
+        FileInputStream fis = null;
 		try {
 			TarqlQuery q = new TarqlParser(queryFile).getResult();
 			if (testQuery) {
@@ -95,14 +103,17 @@ public class tarql extends CmdGeneral {
 			if (csvFiles.isEmpty()) {
 				executeQuery(q);
 			} else {
-				for (String csvFile: csvFiles) {
+                    for (String csvFile: csvFiles) {
+                        fis = new FileInputStream(csvFile);
 					if (withHeader || withoutHeader) {
+
+
 						Reader reader = CSVQueryExecutionFactory.createReader(csvFile, FileManager.get());
 						TableData table = new CSVToValues(reader, withHeader).read();
 						executeQuery(table, q);
 					} else {
 						// Let factory decide after looking at the query
-						executeQuery(csvFile, q);
+						executeQuery(fis, q);
 					}
 				}
 			}
@@ -111,8 +122,10 @@ public class tarql extends CmdGeneral {
 			}
 		} catch (NotFoundException ex) {
 			cmdError("Not found: " + ex.getMessage());
-		}
-	}
+		} catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
 
 	private void executeQuery(TarqlQuery query) {
 		for (Query q: query.getQueries()) {
@@ -143,6 +156,16 @@ public class tarql extends CmdGeneral {
 			CSVQueryExecutionFactory.resetPreviousResults();
 		}
 	}
+
+    private void executeQuery(FileInputStream csvStream, TarqlQuery query) {
+        for (Query q: query.getQueries()) {
+            Model previousResults = ModelFactory.createDefaultModel();
+            previousResults.add(resultModel);
+            CSVQueryExecutionFactory.setPreviousResults(previousResults);
+            processResults(CSVQueryExecutionFactory.create(csvStream, q));
+            CSVQueryExecutionFactory.resetPreviousResults();
+        }
+    }
 	
 	private void processResults(QueryExecution ex) {
 		if (testQuery && ex.getQuery().getConstructTemplate() != null) {

@@ -45,7 +45,7 @@ public class CSVToValues {
 	public TableData read() {
 		List<Binding> bindings = new ArrayList<Binding>();
 		try {
-			CSVReader csv = new CSVReader(reader);
+			CSVReader csv = new CSVReader(reader,'|');
 			String[] row;
 			try {
 				if (varsFromHeader) {
