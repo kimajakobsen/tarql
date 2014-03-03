@@ -50,7 +50,7 @@ public class tarql extends CmdGeneral {
 		add(withHeaderArg, "--header", "Force use of first row as variable names");
 		add(withoutHeaderArg, "--no-header", "Force default variable names (?a, ?b, ...)");
         add(splitFileArg, "--split-file", "Split large file into more smaller files");
-        add(delimiterArg, "--delimiter", "Delimiter used to separate ");
+        add(delimiterArg, "--delimiter", "Delimiter used to separate columns in file (',' is standard)");
 		getUsage().startCategory("Main arguments");
 		getUsage().addUsage("query.sparql", "File containing a SPARQL query to be applied to a CSV file");
 		getUsage().addUsage("table.csv", "CSV file to be processed; can be omitted if specified in FROM clause");
@@ -63,7 +63,7 @@ public class tarql extends CmdGeneral {
 	
 	@Override
 	protected String getSummary() {
-		return getCommandName() + " query.sparql [table.csv [...]]";
+		return getCommandName() + "[options ...] query.sparql table.csv [...]";
 	}
 
 	@Override
