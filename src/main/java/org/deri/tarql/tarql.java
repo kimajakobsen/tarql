@@ -156,6 +156,7 @@ public class tarql extends CmdGeneral {
 			} else {
                 for (String csvFile: csvFiles)
                 {
+                    resultModel.close();
                     resultModel = ModelFactory.createDefaultModel();
                     q = new TarqlParser(queryFile).getResult();
 					if (withHeader || withoutHeader)
