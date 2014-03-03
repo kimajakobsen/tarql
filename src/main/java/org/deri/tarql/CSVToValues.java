@@ -32,20 +32,26 @@ public class CSVToValues {
 	private final boolean varsFromHeader;
 	private final List<Var> vars = new ArrayList<Var>();
 	private int rownum;
+    private final char delimeter;
 	
 	/**
 	 * @param reader Reader over the contents of a CSV file
 	 * @param varsFromHeader If true, use values of first row as column names
 	 */
-	public CSVToValues(Reader reader, boolean varsFromHeader) {
+    public CSVToValues(Reader reader, boolean varsFromHeader) {
+        this(reader,varsFromHeader,',');
+    }
+
+	public CSVToValues(Reader reader, boolean varsFromHeader, char delimeter) {
 		this.reader = reader;
 		this.varsFromHeader = varsFromHeader;
+        this.delimeter = delimeter;
 	}
 	
 	public TableData read() {
 		List<Binding> bindings = new ArrayList<Binding>();
 		try {
-			CSVReader csv = new CSVReader(reader,'|');
+			CSVReader csv = new CSVReader(reader,delimeter);
 			String[] row;
 			try {
 				if (varsFromHeader) {

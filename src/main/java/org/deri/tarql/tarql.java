@@ -1,8 +1,6 @@
 package org.deri.tarql;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.Reader;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,6 +30,7 @@ public class tarql extends CmdGeneral {
 	private final ArgDecl testQueryArg = new ArgDecl(false, "test");
 	private final ArgDecl withHeaderArg = new ArgDecl(false, "header");
 	private final ArgDecl withoutHeaderArg = new ArgDecl(false, "no-header");
+    private final ArgDecl splitFileArg = new ArgDecl(false, "split-file");
 	
 	private String queryFile;
 	private List<String> csvFiles = new ArrayList<String>();
@@ -40,7 +39,10 @@ public class tarql extends CmdGeneral {
 	private boolean testQuery = false;
     private char seperator = ',';
     private boolean loadAsFileStream = false;
+    private boolean splitFile = false;
 	private Model resultModel = ModelFactory.createDefaultModel();
+    private int splitSize = 100*1024*1024;
+    //private int splitSize = 1;
 	
 	public tarql(String[] args) {
 		super(args);
@@ -48,9 +50,9 @@ public class tarql extends CmdGeneral {
 		add(testQueryArg, "--test", "Show CONSTRUCT template and first rows only (for query debugging)");
 		add(withHeaderArg, "--header", "Force use of first row as variable names");
 		add(withoutHeaderArg, "--no-header", "Force default variable names (?a, ?b, ...)");
+        add(splitFileArg, "--split-file", "Split large file into more smaller files");
         //add(seperator, "--seperator", "Force default variable names (?a, ?b, ...)");
         //add(loadAsFileStream, "--no-header", "Force default variable names (?a, ?b, ...)");
-        //add()
 		getUsage().startCategory("Main arguments");
 		getUsage().addUsage("query.sparql", "File containing a SPARQL query to be applied to a CSV file");
 		getUsage().addUsage("table.csv", "CSV file to be processed; can be omitted if specified in FROM clause");
@@ -87,6 +89,12 @@ public class tarql extends CmdGeneral {
 			}
 			withoutHeader = true;
 		}
+        if (hasArg(splitFileArg)) {
+            if (csvFiles.isEmpty()) {
+                cmdError("Cannot use --split-file if no input data file specified");
+            }
+            splitFile = true;
+        }
 		if (hasArg(testQueryArg)) {
 			testQuery = true;
 		}
@@ -95,6 +103,46 @@ public class tarql extends CmdGeneral {
 	@Override
 	protected void exec() {
         FileInputStream fis = null;
+        if(splitFile)
+        {
+            List<String> csvNew = new ArrayList<String>();
+
+            for (String csvFile: csvFiles)
+            {
+                try {
+                    if((new File(csvFile)).length() > splitSize)
+                    {
+                        BufferedReader reader = new BufferedReader(new FileReader(csvFile));
+                        String line = null;
+                        int fileNumber = 1;
+                        int counter = 0;
+                        BufferedWriter fos = new BufferedWriter(new FileWriter(csvFile+fileNumber));
+                        csvNew.add(csvFile+fileNumber);
+                        while((line = reader.readLine()) != null)
+                        {
+                            counter += line.length();
+                            fos.write(line);
+                            if(counter > splitSize)
+                            {
+                                fileNumber++;
+                                fos.close();
+                                fos = new BufferedWriter(new FileWriter(csvFile+fileNumber));
+                                csvNew.add(csvFile+fileNumber);
+                                counter = 0;
+                            }
+                        }
+                        fos.close();
+                    }
+                    else
+                    {
+                        csvNew.add(csvFile);
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            csvFiles = csvNew;
+        }
 		try {
 			TarqlQuery q = new TarqlParser(queryFile).getResult();
 			if (testQuery) {
@@ -103,11 +151,11 @@ public class tarql extends CmdGeneral {
 			if (csvFiles.isEmpty()) {
 				executeQuery(q);
 			} else {
-                    for (String csvFile: csvFiles) {
-                        fis = new FileInputStream(csvFile);
-					if (withHeader || withoutHeader) {
-
-
+                for (String csvFile: csvFiles)
+                {
+                    fis = new FileInputStream(csvFile);
+					if (withHeader || withoutHeader)
+                    {
 						Reader reader = CSVQueryExecutionFactory.createReader(csvFile, FileManager.get());
 						TableData table = new CSVToValues(reader, withHeader).read();
 						executeQuery(table, q);
@@ -116,9 +164,11 @@ public class tarql extends CmdGeneral {
 						executeQuery(fis, q);
 					}
 				}
-			}
-			if (!resultModel.isEmpty()) {
-				resultModel.write(System.out, "TURTLE", q.getPrologue().getBaseURI());
+                if (!resultModel.isEmpty())
+                {
+                    resultModel.write(System.out, "TURTLE", q.getPrologue().getBaseURI());
+                }
+                //resultModel = ModelFactory.createDefaultModel();
 			}
 		} catch (NotFoundException ex) {
 			cmdError("Not found: " + ex.getMessage());
