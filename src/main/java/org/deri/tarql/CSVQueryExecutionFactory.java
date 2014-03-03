@@ -31,52 +31,68 @@ public class CSVQueryExecutionFactory {
 		previousResults = EMPTY_MODEL;
 	}
 	
-	public static QueryExecution create(Query query) {
-		return create(query, FileManager.get());
+	public static QueryExecution create(Query query, char delimiter) {
+		return create(query, FileManager.get(),delimiter);
 	}
 
-	public static QueryExecution create(String query) {
-		return create(QueryFactory.create(query));
+    public static QueryExecution create(Query query) {
+        return create(query,',');
+    }
+
+	public static QueryExecution create(String query, char delimiter) {
+		return create(QueryFactory.create(query),delimiter);
+	}
+
+    public static QueryExecution create(String query) {
+        return create(query,',');
+    }
+	
+	public static QueryExecution create(Query query, FileManager fm, char delimiter) {
+		return makeExecution(query, fm,delimiter);
 	}
 	
-	public static QueryExecution create(Query query, FileManager fm) {
-		return makeExecution(query, fm);
+	public static QueryExecution create(String query, FileManager fm, char delimiter) {
+		return create(QueryFactory.create(query), fm,delimiter);
 	}
 	
-	public static QueryExecution create(String query, FileManager fm) {
-		return create(QueryFactory.create(query), fm);
-	}
-	
-	public static QueryExecution create(String filenameOrURL, Query query) {
-		return create(FileManager.get().open(filenameOrURL), query);
+	public static QueryExecution create(String filenameOrURL, Query query, char delimiter) {
+		return create(FileManager.get().open(filenameOrURL), query,delimiter);
 	}
 
-	public static QueryExecution create(String filenameOrURL, String query) {
-		return create(filenameOrURL, QueryFactory.create(query));
+	public static QueryExecution create(String filenameOrURL, String query, char delimiter) {
+		return create(filenameOrURL, QueryFactory.create(query),delimiter);
 	}
 
-	public static QueryExecution create(InputStream input, Query query) {
-		return create(createReader(input), query);
+	public static QueryExecution create(InputStream input, Query query, char delimiter) {
+		return create(createReader(input), query,delimiter);
 	}
 
-	public static QueryExecution create(InputStream input, String query) {
-		return create(input, QueryFactory.create(query));
+	public static QueryExecution create(InputStream input, String query, char delimiter) {
+		return create(input, QueryFactory.create(query),delimiter);
 	}
 
-	public static QueryExecution create(Reader input, Query query) {
-		return makeExecution(input, query);
+	public static QueryExecution create(Reader input, Query query, char delimiter) {
+		return makeExecution(input, query,delimiter);
 	}
 
-	public static QueryExecution create(Reader input, String query) {
-		return create(input, QueryFactory.create(query));
+    public static QueryExecution create(Reader input, Query query) {
+        return create(input, query,',');
+    }
+
+	public static QueryExecution create(Reader input, String query, char delimiter) {
+		return create(input, QueryFactory.create(query),delimiter);
 	}
 
-	public static QueryExecution create(TableData table, Query query) {
+    public static QueryExecution create(Reader input, String query) {
+        return create(input, query,',');
+    }
+
+	public static QueryExecution create(TableData table, Query query, char delimiter) {
 		return makeExecution(table, query);
 	}
 
-	public static QueryExecution create(TableData table, String query) {
-		return create(table, QueryFactory.create(query));
+	public static QueryExecution create(TableData table, String query, char delimiter) {
+		return create(table, QueryFactory.create(query),delimiter);
 	}
 
 	public static Reader createReader(InputStream inputStream) {
@@ -96,14 +112,14 @@ public class CSVQueryExecutionFactory {
 		return QueryExecutionFactory.create(query, previousResults);
 	}
 	
-	private static QueryExecution makeExecution(Reader reader, Query query) {
+	private static QueryExecution makeExecution(Reader reader, Query query, char delimiter) {
 		boolean useColumnHeadersAsVars = modifyQueryForColumnHeaders(query);
-		return makeExecution(new CSVToValues(reader, useColumnHeadersAsVars).read(), query);
+		return makeExecution(new CSVToValues(reader, useColumnHeadersAsVars,delimiter).read(), query);
 	}
 	
-	private static QueryExecution makeExecution(Query query, FileManager fm) {
+	private static QueryExecution makeExecution(Query query, FileManager fm, char delimiter) {
 		String filenameOrURL = getSingleFromClause(query, fm);
-		return makeExecution(createReader(filenameOrURL, fm), query);
+		return makeExecution(createReader(filenameOrURL, fm), query, delimiter);
 	}
 	
 	private static String getSingleFromClause(Query query, FileManager fm) {

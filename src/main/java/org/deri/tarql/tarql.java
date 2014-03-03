@@ -31,18 +31,17 @@ public class tarql extends CmdGeneral {
 	private final ArgDecl withHeaderArg = new ArgDecl(false, "header");
 	private final ArgDecl withoutHeaderArg = new ArgDecl(false, "no-header");
     private final ArgDecl splitFileArg = new ArgDecl(false, "split-file");
+    private final ArgDecl delimiterArg = new ArgDecl(true, "delimiter");
 	
 	private String queryFile;
 	private List<String> csvFiles = new ArrayList<String>();
 	private boolean withHeader = false;
 	private boolean withoutHeader = false;
 	private boolean testQuery = false;
-    private char seperator = ',';
-    private boolean loadAsFileStream = false;
+    private char delimiter = ',';
     private boolean splitFile = false;
 	private Model resultModel = ModelFactory.createDefaultModel();
-    //private int splitSize = 100*1024*1024;
-    private int splitSize = 1;
+    private int splitSize = 100*1024*1024;
 	
 	public tarql(String[] args) {
 		super(args);
@@ -51,8 +50,7 @@ public class tarql extends CmdGeneral {
 		add(withHeaderArg, "--header", "Force use of first row as variable names");
 		add(withoutHeaderArg, "--no-header", "Force default variable names (?a, ?b, ...)");
         add(splitFileArg, "--split-file", "Split large file into more smaller files");
-        //add(seperator, "--seperator", "Force default variable names (?a, ?b, ...)");
-        //add(loadAsFileStream, "--no-header", "Force default variable names (?a, ?b, ...)");
+        add(delimiterArg, "--delimiter", "Delimiter used to separate ");
 		getUsage().startCategory("Main arguments");
 		getUsage().addUsage("query.sparql", "File containing a SPARQL query to be applied to a CSV file");
 		getUsage().addUsage("table.csv", "CSV file to be processed; can be omitted if specified in FROM clause");
@@ -95,14 +93,17 @@ public class tarql extends CmdGeneral {
             }
             splitFile = true;
         }
+        if (hasArg(delimiterArg)) {
+            delimiter = this.getValue(delimiterArg).charAt(0);
+        }
 		if (hasArg(testQueryArg)) {
 			testQuery = true;
 		}
 	}
 
 	@Override
-	protected void exec() {
-        FileInputStream fis = null;
+	protected void exec()
+    {
         if(splitFile)
         {
             List<String> csvNew = new ArrayList<String>();
@@ -157,11 +158,10 @@ public class tarql extends CmdGeneral {
                 {
                     resultModel = ModelFactory.createDefaultModel();
                     q = new TarqlParser(queryFile).getResult();
-                    fis = new FileInputStream(csvFile);
 					if (withHeader || withoutHeader)
                     {
 						Reader reader = CSVQueryExecutionFactory.createReader(csvFile, FileManager.get());
-						TableData table = new CSVToValues(reader, withHeader).read();
+						TableData table = new CSVToValues(reader, withHeader,delimiter).read();
 						executeQuery(table, q);
 					} else {
 						// Let factory decide after looking at the query
@@ -169,15 +169,13 @@ public class tarql extends CmdGeneral {
 					}
                     if (!resultModel.isEmpty())
                     {
-                        resultModel.write(System.out, "TURTLE", q.getPrologue().getBaseURI());
+                        resultModel.write(System.out, "N-TRIPLE", q.getPrologue().getBaseURI());
                     }
 				}
 			}
 		} catch (NotFoundException ex) {
 			cmdError("Not found: " + ex.getMessage());
-		} catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
+		}
     }
 
 	private void executeQuery(TarqlQuery query) {
@@ -185,7 +183,7 @@ public class tarql extends CmdGeneral {
 			Model previousResults = ModelFactory.createDefaultModel();
 			previousResults.add(resultModel);
 			CSVQueryExecutionFactory.setPreviousResults(previousResults);
-			processResults(CSVQueryExecutionFactory.create(q));
+			processResults(CSVQueryExecutionFactory.create(q,delimiter));
 			CSVQueryExecutionFactory.resetPreviousResults();
 		}
 	}
@@ -195,7 +193,7 @@ public class tarql extends CmdGeneral {
 			Model previousResults = ModelFactory.createDefaultModel();
 			previousResults.add(resultModel);
 			CSVQueryExecutionFactory.setPreviousResults(previousResults);
-			processResults(CSVQueryExecutionFactory.create(table, q));
+			processResults(CSVQueryExecutionFactory.create(table, q,delimiter));
 			CSVQueryExecutionFactory.resetPreviousResults();
 		}
 	}
@@ -205,7 +203,7 @@ public class tarql extends CmdGeneral {
 			Model previousResults = ModelFactory.createDefaultModel();
 			previousResults.add(resultModel);
 			CSVQueryExecutionFactory.setPreviousResults(previousResults);
-			processResults(CSVQueryExecutionFactory.create(csvFile, q));
+			processResults(CSVQueryExecutionFactory.create(csvFile, q,delimiter));
 			CSVQueryExecutionFactory.resetPreviousResults();
 		}
 	}
@@ -215,7 +213,7 @@ public class tarql extends CmdGeneral {
             Model previousResults = ModelFactory.createDefaultModel();
             previousResults.add(resultModel);
             CSVQueryExecutionFactory.setPreviousResults(previousResults);
-            processResults(CSVQueryExecutionFactory.create(csvStream, q));
+            processResults(CSVQueryExecutionFactory.create(csvStream, q,delimiter));
             CSVQueryExecutionFactory.resetPreviousResults();
         }
     }
