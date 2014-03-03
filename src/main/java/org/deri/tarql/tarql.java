@@ -41,8 +41,8 @@ public class tarql extends CmdGeneral {
     private boolean loadAsFileStream = false;
     private boolean splitFile = false;
 	private Model resultModel = ModelFactory.createDefaultModel();
-    private int splitSize = 100*1024*1024;
-    //private int splitSize = 1;
+    //private int splitSize = 100*1024*1024;
+    private int splitSize = 1;
 	
 	public tarql(String[] args) {
 		super(args);
@@ -117,16 +117,18 @@ public class tarql extends CmdGeneral {
                         int fileNumber = 1;
                         int counter = 0;
                         BufferedWriter fos = new BufferedWriter(new FileWriter(csvFile+fileNumber));
+                        (new File(csvFile+fileNumber)).deleteOnExit();
                         csvNew.add(csvFile+fileNumber);
                         while((line = reader.readLine()) != null)
                         {
                             counter += line.length();
-                            fos.write(line);
+                            fos.write(line+'\n');
                             if(counter > splitSize)
                             {
                                 fileNumber++;
                                 fos.close();
                                 fos = new BufferedWriter(new FileWriter(csvFile+fileNumber));
+                                (new File(csvFile+fileNumber)).deleteOnExit();
                                 csvNew.add(csvFile+fileNumber);
                                 counter = 0;
                             }
@@ -144,7 +146,7 @@ public class tarql extends CmdGeneral {
             csvFiles = csvNew;
         }
 		try {
-			TarqlQuery q = new TarqlParser(queryFile).getResult();
+            TarqlQuery q = new TarqlParser(queryFile).getResult();
 			if (testQuery) {
 				q.makeTest();
 			}
@@ -153,6 +155,8 @@ public class tarql extends CmdGeneral {
 			} else {
                 for (String csvFile: csvFiles)
                 {
+                    resultModel = ModelFactory.createDefaultModel();
+                    q = new TarqlParser(queryFile).getResult();
                     fis = new FileInputStream(csvFile);
 					if (withHeader || withoutHeader)
                     {
@@ -161,14 +165,13 @@ public class tarql extends CmdGeneral {
 						executeQuery(table, q);
 					} else {
 						// Let factory decide after looking at the query
-						executeQuery(fis, q);
+						executeQuery(csvFile, q);
 					}
+                    if (!resultModel.isEmpty())
+                    {
+                        resultModel.write(System.out, "TURTLE", q.getPrologue().getBaseURI());
+                    }
 				}
-                if (!resultModel.isEmpty())
-                {
-                    resultModel.write(System.out, "TURTLE", q.getPrologue().getBaseURI());
-                }
-                //resultModel = ModelFactory.createDefaultModel();
 			}
 		} catch (NotFoundException ex) {
 			cmdError("Not found: " + ex.getMessage());
